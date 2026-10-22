@@ -52,6 +52,14 @@ export default function SignUpPage() {
         departmentCache.clear()
         setLoading(false)
         setShowVerifyModal(true)
+        if (window.fbq) {
+          window.fbq("track", "CompleteRegistration");
+        } else {
+          const storageKey = "meta-pixel-pending-events";
+          const pendingEvents = JSON.parse(sessionStorage.getItem(storageKey) || "[]") as string[];
+          pendingEvents.push("CompleteRegistration");
+          sessionStorage.setItem(storageKey, JSON.stringify(pendingEvents));
+        }
       }
     } catch (error: any) {
       const rawMessage = error?.message || ''

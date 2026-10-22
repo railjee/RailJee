@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans, Tiro_Devanagari_Hindi, Geist } from 'next/font/googl
 import "./globals.css";
 import { NavigationProvider } from "@/components/NavigationProvider";
 import ExternalApiErrorProvider from "@/components/common/ExternalApiErrorProvider";
+import MetaPixel from "@/components/MetaPixel";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -55,6 +56,7 @@ export default function RootLayout({
               {children}
             </ExternalApiErrorProvider>
           </NavigationProvider>
+          <MetaPixel />
         </Suspense>
       </body>
     </html>
