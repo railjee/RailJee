@@ -209,7 +209,7 @@ export default function StatsPage() {
         {auth.status === "loading" || (auth.status === "ready" && !error && !stats) ? (
           <LoadingSkeleton />
         ) : auth.status === "unauthenticated" ? (
-          <SignInPrompt onSignIn={() => router.push("/login")} />
+          <SignInPrompt onSignIn={() => router.push("/auth/signin?redirect=%2Fstats")} />
         ) : error || !stats || stats.totalExams === 0 ? (
           <EmptyState onStart={() => router.push("/departments")} />
         ) : (

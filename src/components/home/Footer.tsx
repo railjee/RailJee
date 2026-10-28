@@ -55,7 +55,7 @@ export default function Footer() {
             <h3 className="text-xs sm:text-sm font-semibold uppercase tracking-wider mb-3 sm:mb-6">Departments</h3>
             <ul className="space-y-2 sm:space-y-4 text-stone-400">
               <li><Link href="/departments" className="hover:text-white transition-colors text-xs sm:text-sm">All Departments</Link></li>
-              <li><Link href="/departments/civil-engineering" className="hover:text-white transition-colors text-xs sm:text-sm">Civil</Link></li>
+              <li><Link href="/departments/civil" className="hover:text-white transition-colors text-xs sm:text-sm">Civil</Link></li>
               <li><Link href="/departments/mechanical" className="hover:text-white transition-colors text-xs sm:text-sm">Mechanical</Link></li>
               <li><Link href="/departments/electrical" className="hover:text-white transition-colors text-xs sm:text-sm">Electrical</Link></li>
               <li><Link href="/departments/commercial" className="hover:text-white transition-colors text-xs sm:text-sm">Commercial</Link></li>
