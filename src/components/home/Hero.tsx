@@ -1,7 +1,11 @@
 import Link from 'next/link';
+import { preload } from 'react-dom';
 import { SITE_STATS } from '@/lib/constants/siteStats';
 
 export default function Hero() {
+  // Preload the hero image on the home page only (was preloaded on every route from the root layout)
+  preload('/images/vande_bharat_01.avif', { as: 'image', type: 'image/avif', fetchPriority: 'high' });
+
 
   return (
     <section className="relative py-4 sm:py-16 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-[#faf9f7]">
@@ -71,6 +75,7 @@ export default function Hero() {
                     src="/images/vande_bharat_01.avif"
                     alt="Vande Bharat Express - Modern Indian Railway"
                     className="w-full h-full object-cover"
+                    fetchPriority="high"
                   />
                   {/* Overlay for better text visibility */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
