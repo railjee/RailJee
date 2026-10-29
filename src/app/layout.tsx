@@ -7,7 +7,8 @@ import ExternalApiErrorProvider from "@/components/common/ExternalApiErrorProvid
 import MetaPixel from "@/components/MetaPixel";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+// Only shadcn headings use Geist, so don't preload it on every page
+const geist = Geist({subsets:['latin'],variable:'--font-sans',preload:false});
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -25,6 +26,7 @@ const tiroHindi = Tiro_Devanagari_Hindi({
   variable: '--font-hindi',
   display: 'swap',
   adjustFontFallback: false, // no good system fallback for Devanagari; skip to avoid worse shift
+  preload: false, // only used on exam questions (.font-hindi); downloaded there on demand
 });
 
 export const metadata: Metadata = {
@@ -43,11 +45,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(jakartaSans.variable, tiroHindi.variable, "font-sans", geist.variable)}>
       <head>
-        {/* Preload above-the-fold images — browser fetches these before parsing <body> */}
+        {/* Preload the navbar logo — shown on every page. Hero image and Razorpay load only where used. */}
         <link rel="preload" href="/images/logo.png" as="image" />
-        <link rel="preload" href="/images/vande_bharat_01.avif" as="image" type="image/avif" />
-        {/* Razorpay SDK */}
-        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
       </head>
       <body className="antialiased">
         <Suspense>

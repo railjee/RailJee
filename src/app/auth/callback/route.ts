@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { syncUserProfile } from '@/lib/api'
+import { getSafeRedirect } from '@/lib/safeRedirect'
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const redirect = requestUrl.searchParams.get('redirect') || '/'
+  const redirect = getSafeRedirect(requestUrl.searchParams.get('redirect'))
 
   if (code) {
     const supabase = await createClient()
@@ -13,7 +14,9 @@ export async function GET(request: Request) {
     
     if (error) {
       console.error('Error exchanging code for session:', error)
-      return NextResponse.redirect(new URL('/auth/signin?error=callback_error', requestUrl.origin))
+      const signInUrl = new URL('/auth/signin?error=callback_error', requestUrl.origin)
+      signInUrl.searchParams.set('redirect', redirect)
+      return NextResponse.redirect(signInUrl)
     }
 
     // For OAuth sign-ups, create backend user profile if it doesn't exist

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getSafeRedirect } from '@/lib/safeRedirect'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -44,12 +45,14 @@ export async function middleware(request: NextRequest) {
   // TESTING: Disabled authentication protection - all pages are public
   if (isProtectedRoute && !user) {
     const redirectUrl = new URL('/auth/signin', request.url)
-    redirectUrl.searchParams.set('redirect', pathname)
+    // Keep the query string (e.g. ?dept=) so the user lands back on the same exam
+    redirectUrl.searchParams.set('redirect', pathname + request.nextUrl.search)
     return NextResponse.redirect(redirectUrl)
   }
 
   if (isAuthPage && user && !pathname.includes('/callback')) {
-    return NextResponse.redirect(new URL('/', request.url))
+    const redirect = getSafeRedirect(request.nextUrl.searchParams.get('redirect'))
+    return NextResponse.redirect(new URL(redirect, request.url))
   }
 
   return response
