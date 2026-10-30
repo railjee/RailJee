@@ -2,22 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-
-type FbqFunction = {
-  (...args: unknown[]): void;
-  callMethod?: (...args: unknown[]) => void;
-  queue?: unknown[][];
-  push?: (...args: unknown[]) => void;
-  loaded?: boolean;
-  version?: string;
-};
-
-declare global {
-  interface Window {
-    fbq?: FbqFunction;
-    _fbq?: FbqFunction;
-  }
-}
+import type { FbqFunction } from "@/lib/metaTracking";
 
 export default function MetaPixel() {
   const pathname = usePathname();
