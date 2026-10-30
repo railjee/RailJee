@@ -1,71 +1,37 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
-import type { FbqFunction } from "@/lib/metaTracking";
+import { usePathname } from "next/navigation";
+import {
+  captureAttribution,
+  firePendingRegistration,
+  initPixel,
+  trackPageView,
+} from "@/lib/metaTracking";
 
+/**
+ * Loads the Meta Pixel and tracks one PageView per route. All logic lives in
+ * @/lib/metaTracking; see docs/plans/2026-10-29-meta-conversion-tracking.md.
+ */
 export default function MetaPixel() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const query = searchParams.toString();
-  const lastTrackedUrl = useRef<string | null>(null);
+  const lastTrackedPath = useRef<string | null>(null);
 
   useEffect(() => {
-    const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+    // Store UTMs / fbclid even when tracking is off, so they still reach the signup call.
+    captureAttribution();
 
-    if (!pixelId) return;
+    if (!initPixel()) return;
 
-    // Initialise the Pixel once, then load Meta's script.
-    if (!window.fbq) {
-      const fbq = function (...args: unknown[]) {
-        if (fbq.callMethod) {
-          fbq.callMethod(...args);
-        } else {
-          fbq.queue?.push(args);
-        }
-      } as FbqFunction;
+    // Browser copy of a Google signup (the OAuth callback set the rj_reg cookie).
+    firePendingRegistration();
 
-      fbq.queue = [];
-      fbq.loaded = true;
-      fbq.version = "2.0";
-
-      window.fbq = fbq;
-      window._fbq = fbq;
-
-      window.fbq("init", pixelId);
-
-      if (!document.getElementById("meta-pixel-script")) {
-        const script = document.createElement("script");
-        script.id = "meta-pixel-script";
-        script.async = true;
-        script.src = "https://connect.facebook.net/en_US/fbevents.js";
-        document.head.appendChild(script);
-      }
+    // Pathname only: query-string changes (filters, ?dept=) are not new pages.
+    if (lastTrackedPath.current !== pathname) {
+      trackPageView();
+      lastTrackedPath.current = pathname;
     }
-
-    // Registration can finish before this effect initializes the Pixel.
-    // Flush events queued by the signup page once the fbq stub is available.
-    const pendingEvents = window.sessionStorage.getItem("meta-pixel-pending-events");
-    if (pendingEvents) {
-      try {
-        const events = JSON.parse(pendingEvents) as string[];
-        for (const eventName of events) {
-          window.fbq?.("track", eventName);
-        }
-        window.sessionStorage.removeItem("meta-pixel-pending-events");
-      } catch {
-        window.sessionStorage.removeItem("meta-pixel-pending-events");
-      }
-    }
-
-    // Track the initial page and subsequent App Router navigations.
-    const currentUrl = pathname + (query ? `?${query}` : "");
-
-    if (lastTrackedUrl.current !== currentUrl) {
-      window.fbq?.("track", "PageView");
-      lastTrackedUrl.current = currentUrl;
-    }
-  }, [pathname, query]);
+  }, [pathname]);
 
   return null;
 }

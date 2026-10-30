@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { syncUserProfile } from '@/lib/api'
+import { getTrackingFields, trackCompleteRegistration } from '@/lib/metaTracking'
 import { departmentCache } from '@/lib/departmentCache'
 import { getSafeRedirect } from '@/lib/safeRedirect'
 import Navbar from '@/components/common/Navbar'
@@ -44,10 +45,12 @@ export default function SignUpPage() {
 
       // 2. Create user profile via backend API
       if (data.user) {
-        const { success, error: createError } = await syncUserProfile({
+        const { success, created, error: createError } = await syncUserProfile({
           supabaseId: data.user.id,
           email: data.user.email!,
           username: name,
+          authProvider: 'email',
+          ...getTrackingFields(),
         })
 
         if (!success) {
@@ -57,13 +60,9 @@ export default function SignUpPage() {
         departmentCache.clear()
         setLoading(false)
         setShowVerifyModal(true)
-        if (window.fbq) {
-          window.fbq("track", "CompleteRegistration");
-        } else {
-          const storageKey = "meta-pixel-pending-events";
-          const pendingEvents = JSON.parse(sessionStorage.getItem(storageKey) || "[]") as string[];
-          pendingEvents.push("CompleteRegistration");
-          sessionStorage.setItem(storageKey, JSON.stringify(pendingEvents));
+        // New accounts only; the API sends the server copy with the same event id.
+        if (created) {
+          trackCompleteRegistration(data.user.id)
         }
       }
     } catch (error: any) {

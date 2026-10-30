@@ -9,6 +9,7 @@ import { useExamTimer, useExamData, useExamState, useExamSubmission } from '@/ho
 import { useNavigation } from '@/components/NavigationProvider';
 import { createClient, getSupabaseAccessToken } from '@/lib/supabase/client';
 import { emitExternalApiError } from '@/lib/externalApiError';
+import { trackViewContent } from '@/lib/metaTracking';
 import LoadingScreen from './LoadingScreen';
 import ErrorScreen from './common/ErrorScreen';
 import ExamInstructions from './exam/ExamInstructions';
@@ -104,6 +105,18 @@ export default function ExamPageClient({ examId }: ExamPageClientProps) {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Meta ViewContent: once per paper, when its details have loaded
+  const viewContentTrackedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!exam?.paperId || viewContentTrackedFor.current === exam.paperId) return;
+    viewContentTrackedFor.current = exam.paperId;
+    trackViewContent({
+      contentIds: [exam.paperId],
+      contentCategory: deptSlugFromUrl || exam.departmentId,
+      contentName: exam.name,
+    });
+  }, [exam, deptSlugFromUrl]);
 
   // Scroll to top when question changes
   useEffect(() => {

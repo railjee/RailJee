@@ -1,7 +1,11 @@
 # Meta conversion tracking (Pixel + Conversions API)
 
 - **Date:** 2026-10-29
-- **Status:** Phase 1 implemented: `src/lib/metaTracking.ts` added; `MetaPixel.tsx` now imports the `FbqFunction` type from it (no behaviour change). Type check and lint pass; the helper logic passed a 15-case Node test with fake cookies. Not committed. Phases 2–4 not started.
+- **Status:**
+  - Phase 1 committed (`3e273d0` on `feat/meta-conversion-tracking`): `src/lib/metaTracking.ts`; `MetaPixel.tsx` imports its `FbqFunction` type.
+  - Phase 2 committed in railji-backend (`3c64b52` on `feat/meta-conversion-tracking`); details in `railji-backend/docs/plans/2026-10-30-meta-conversions-api.md`. The planned `client-context.ts` became `tracking.utils.ts` (it also holds `maskId`, `sha256`, `logEvent`).
+  - Phase 3 implemented, **not committed**. `tsc`, lint and `next build` pass; the new helper functions passed an 8-case Node test (plus the 15 Phase 1 cases). A browser check was not possible: the in-app Browser pane was hidden, so `requestAnimationFrame` never fired and React never hydrated the page. Unchanged `main` behaves the same there, so this is the pane, not the code. Verify in a real browser (Phase 4 checklist).
+  - Phase 4 not started.
 - **Repos:** RailJee (frontend) and railji-backend (API). This doc is the single plan for both; railji-backend gets a pointer doc in Phase 2.
 - **Pixel ID:** 1798627321470498
 
@@ -75,12 +79,16 @@ Internal exclusion on the server: request flagged `internal`, email in `INTERNAL
 
 | File | Change |
 |---|---|
-| `src/components/MetaPixel.tsx` | Use the helper; PageView on pathname change only; capture attribution; fire pending registration. Drop the sessionStorage queue (the fbq stub queues for us). |
-| `src/lib/api.ts` | `syncUserProfile` sends attribution, `authProvider`, `internal`; returns `created`; accepts forwarded client headers. |
-| `src/app/auth/signup/page.tsx` | Browser CompleteRegistration only when `created`, with `registrationEventId`. |
-| `src/app/auth/callback/route.ts` | Read `rj_attr`/`rj_internal` cookies and client IP/UA, forward with the secret header; on 201 set `rj_reg`. |
-| `src/components/ExamPageClient.tsx` | `trackViewContent` once per exam after the exam loads. |
-| `src/components/subscription/SubscriptionPageClient.tsx` | Send fbp/fbc with the order; browser InitiateCheckout with the order id as eventID. |
+| `src/lib/metaTracking.ts` | Add `attributionFromCookies(read)` (server-safe; `getAttribution()` now uses it), `getTrackingFields()` (attribution + internal flag for API calls) and `withAttributionParams(url)`. |
+| `src/components/MetaPixel.tsx` | Use the helper; PageView on pathname change only (no longer on query changes); capture attribution; fire the pending Google registration. Drop the sessionStorage queue (the fbq stub queues for us). |
+| `src/lib/api.ts` | `syncUserProfile` accepts optional tracking fields (`attribution`, `authProvider`, `internal`) and forwarded headers; returns `created` (HTTP 201). |
+| `src/app/auth/signup/page.tsx` | Sends tracking fields with `authProvider: 'email'`; browser CompleteRegistration only when `created`, with `registrationEventId`. |
+| `src/app/auth/callback/route.ts` | Reads `rj_attr`, `rj_internal`, `_fbp`, `_fbc` cookies and the visitor's IP (`x-nf-client-connection-ip`, then `x-forwarded-for`) and user agent; forwards them with `x-rj-forward-secret` (`INTERNAL_FORWARD_SECRET`, server-only env). `authProvider` comes from Supabase's `app_metadata.provider`. On 201 sets a 10-minute `rj_reg` cookie for the browser copy. |
+| `src/components/auth/GoogleAuthButton.tsx` | The "Open in Chrome" link (Facebook/Instagram in-app browser on Android) carries the stored UTMs and `fbclid`. Chrome has its own cookie jar, so without this every Google signup from an Android ad loses its attribution. |
+| `src/components/ExamPageClient.tsx` | `trackViewContent` once per exam after it loads: `content_ids: [paperId]`, `content_category`: the `?dept=` slug (falls back to `departmentId`), `content_name`: paper name. |
+| `src/components/subscription/SubscriptionPageClient.tsx` | Sends `fbp`, `fbc` and `internal` in the order `metadata`; browser InitiateCheckout with the order id as eventID (`value`, `currency`, `content_ids: [planId]`). |
+
+New env (Netlify, server-only, not `NEXT_PUBLIC_`): `INTERNAL_FORWARD_SECRET`, the same value as on the API.
 
 ### Phase 4 — Manual checklist
 

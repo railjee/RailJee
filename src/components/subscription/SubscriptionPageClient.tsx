@@ -10,6 +10,7 @@ import { emitExternalApiError } from '@/lib/externalApiError';
 import { apiFetch } from '@/lib/apiUtil';
 import { createClient } from '@/lib/supabase/client';
 import { departmentCache } from '@/lib/departmentCache';
+import { getMetaBrowserIds, isInternal, trackEvent } from '@/lib/metaTracking';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Plan {
@@ -280,7 +281,11 @@ export default function SubscriptionPageClient() {
       const response: OrderResponse = await apiFetch(API_ENDPOINTS.PAYMENT_ORDER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: selectedPlan.planId }),
+        // fbp/fbc/internal let the API send a matched server-side InitiateCheckout and Purchase
+        body: JSON.stringify({
+          planId: selectedPlan.planId,
+          metadata: { ...getMetaBrowserIds(), ...(isInternal() ? { internal: true } : {}) },
+        }),
       });
 
       if (!response.success) {
@@ -292,6 +297,19 @@ export default function SubscriptionPageClient() {
 
       const { orderId: razorpayOrderId, amount, currency } = response.data;
       setOrderId(razorpayOrderId);
+      // Browser copy; the API sends the server copy with the same event id (the order id).
+      trackEvent(
+        'InitiateCheckout',
+        {
+          value: amount,
+          currency,
+          content_ids: [selectedPlan.planId],
+          content_type: 'product',
+          ...(selectedDepartment?.id ? { content_category: selectedDepartment.id } : {}),
+          num_items: 1,
+        },
+        razorpayOrderId,
+      );
 
       if (!window.Razorpay) throw new Error('Razorpay SDK not loaded');
       const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;

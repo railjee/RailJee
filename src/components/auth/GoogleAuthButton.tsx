@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { departmentCache } from '@/lib/departmentCache'
 import { chromeIntentUrl, isAndroid, isInAppBrowser } from '@/lib/inAppBrowser'
+import { withAttributionParams } from '@/lib/metaTracking'
 
 interface GoogleAuthButtonProps {
   label: string
@@ -51,7 +52,8 @@ export default function GoogleAuthButton({ label, redirectTo, disabled, onError 
   // Google blocks sign-in inside the Facebook/Instagram app, so send users to a real browser
   if (browser === 'in-app-android') {
     return (
-      <a href={chromeIntentUrl(window.location.href)} className={buttonClass}>
+      // Chrome has its own cookies: carry the ad attribution over in the URL.
+      <a href={chromeIntentUrl(withAttributionParams(window.location.href))} className={buttonClass}>
         <GoogleIcon />
         Open in Chrome to use Google
       </a>

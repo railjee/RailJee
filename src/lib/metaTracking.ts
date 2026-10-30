@@ -240,7 +240,8 @@ function clean(value: string | null | undefined): string | undefined {
 export function parseAttributionCookie(raw: string | undefined): Attribution | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(decodeURIComponent(raw));
+    // document.cookie gives the encoded value; Next's server cookies() gives it decoded.
+    const parsed = JSON.parse(raw.startsWith('{') ? raw : decodeURIComponent(raw));
     return parsed && typeof parsed === 'object' ? (parsed as Attribution) : null;
   } catch {
     return null;
@@ -288,22 +289,52 @@ export function captureAttribution(): void {
   writeCookie(ATTRIBUTION_COOKIE, encodeURIComponent(JSON.stringify(next)), ATTRIBUTION_MAX_AGE);
 }
 
-/** Meta's own browser cookies, read fresh (the Pixel may set them late). */
+/**
+ * Stored attribution merged with Meta's live `_fbp` / `_fbc` cookies (the
+ * Pixel may set them after landing). `read` returns a raw cookie value, so
+ * this works in the browser and in a server route. Null when there is nothing.
+ */
+export function attributionFromCookies(read: (name: string) => string | undefined): Attribution | null {
+  const stored = parseAttributionCookie(read(ATTRIBUTION_COOKIE));
+  const fbp = clean(read('_fbp'));
+  const fbc = clean(read('_fbc')) ?? stored?.fbc;
+  const merged: Attribution = { ...stored, ...(fbp ? { fbp } : {}), ...(fbc ? { fbc } : {}) };
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
+/** Attribution to send with the signup call (browser only). */
+export function getAttribution(): Attribution | null {
+  return attributionFromCookies(readCookie);
+}
+
+/** Meta's browser ids, for the checkout call. */
 export function getMetaBrowserIds(): { fbp?: string; fbc?: string } {
-  const stored = parseAttributionCookie(readCookie(ATTRIBUTION_COOKIE));
+  const attribution = getAttribution();
+  return { fbp: attribution?.fbp, fbc: attribution?.fbc };
+}
+
+/** Tracking fields the API accepts on POST /users. */
+export function getTrackingFields(): { attribution?: Attribution; internal?: boolean } {
+  const attribution = getAttribution();
   return {
-    fbp: clean(readCookie('_fbp')),
-    fbc: clean(readCookie('_fbc')) ?? stored?.fbc,
+    ...(attribution ? { attribution } : {}),
+    ...(isInternal() ? { internal: true } : {}),
   };
 }
 
 /**
- * Attribution to send with the signup call: stored UTMs and click id, plus
- * the live `_fbp` / `_fbc` cookies. Returns null when there is nothing.
+ * Copy the stored UTMs and fbclid onto a URL. Used when we send a visitor to
+ * another browser (Facebook in-app → Chrome), which has its own cookies, so
+ * the landing there can capture the same attribution.
  */
-export function getAttribution(): Attribution | null {
+export function withAttributionParams(url: string): string {
   const stored = parseAttributionCookie(readCookie(ATTRIBUTION_COOKIE));
-  const { fbp, fbc } = getMetaBrowserIds();
-  const merged: Attribution = { ...stored, ...(fbp ? { fbp } : {}), ...(fbc ? { fbc } : {}) };
-  return Object.keys(merged).length > 0 ? merged : null;
+  if (!stored) return url;
+  const target = new URL(url);
+  for (const key of [...UTM_KEYS, 'fbclid'] as const) {
+    const value = stored[key];
+    if (value && !target.searchParams.has(key)) target.searchParams.set(key, value);
+  }
+  if (isInternal()) target.searchParams.set(INTERNAL_PARAM, '1');
+  return target.toString();
 }

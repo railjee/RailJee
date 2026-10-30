@@ -1,18 +1,31 @@
 // API utilities for Rail-Jee
 import { API_ENDPOINTS } from './apiConfig';
 import { emitExternalApiError } from './externalApiError';
+import type { Attribution } from './metaTracking';
 
 export interface UserProfilePayload {
   supabaseId: string;
   email: string;
   username: string;
+  // Optional tracking fields (see docs/plans/2026-10-29-meta-conversion-tracking.md)
+  attribution?: Attribution;
+  authProvider?: 'email' | 'google';
+  internal?: boolean;
 }
 
-export async function syncUserProfile(payload: UserProfilePayload): Promise<{ success: boolean; error?: string }> {
+/**
+ * Create the backend user, or touch an existing one.
+ * `created` is true only for a new account (HTTP 201).
+ * `extraHeaders` lets the OAuth callback forward the visitor's IP and user agent.
+ */
+export async function syncUserProfile(
+  payload: UserProfilePayload,
+  extraHeaders: Record<string, string> = {},
+): Promise<{ success: boolean; created?: boolean; error?: string }> {
   try {
     const response = await fetch(API_ENDPOINTS.USERS, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...extraHeaders },
       body: JSON.stringify(payload),
     });
 
@@ -22,7 +35,7 @@ export async function syncUserProfile(payload: UserProfilePayload): Promise<{ su
       return { success: false, error: errorData.message || `HTTP error! status: ${response.status}` };
     }
 
-    return { success: true };
+    return { success: true, created: response.status === 201 };
   } catch (error: any) {
     emitExternalApiError();
     return { success: false, error: error.message || 'Failed to create user profile' };
